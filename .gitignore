@@ -1,2 +1,3 @@
-user_posting_emulation.py
 db_creds.yaml
+*.pem
+*.txt
