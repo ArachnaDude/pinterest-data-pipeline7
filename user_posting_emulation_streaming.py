@@ -96,12 +96,13 @@ def run_infinite_post_data_loop():
             headers = {"Content-Type": "application/json"}
             pin_stream_response = requests.request("PUT", pin_stream_url, headers=headers, data=pin_stream_payload)
             geo_stream_response = requests.request("PUT", geo_stream_url, headers=headers, data=geo_stream_payload)
-            # user_stream_response = requests.request("PUT", user_stream_url, headers=headers, data=user_topic_data)
+            user_stream_response = requests.request("PUT", user_stream_url, headers=headers, data=user_stream_payload)
             print("PIN STREAM STATUS: ", pin_stream_response.status_code)
             print(pin_stream_response.json())
             print("GEO STREAM STATUS: ", geo_stream_response.status_code)
             print(geo_stream_response.json())
-            # print("USER STREAM STATUS: ", user_stream_response.status_code)
+            print("USER STREAM STATUS: ", user_stream_response.status_code)
+            print(user_stream_response.json())
 
 
 if __name__ == "__main__":
