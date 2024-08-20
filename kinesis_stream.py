@@ -67,4 +67,136 @@ df_user = df_user.selectExpr("CAST(data as STRING)")
 
 # COMMAND ----------
 
-display(df_pin)
+# MAGIC %md
+# MAGIC ### schemas
+
+# COMMAND ----------
+
+pin_schema = StructType([
+    StructField("index", IntegerType(), True),
+    StructField("unique_id", StringType(), True),
+    StructField("title", StringType(), True),
+    StructField("description", StringType(), True),
+    StructField("poster_name", StringType(), True),
+    StructField("follower_count", StringType(), True),
+    StructField("tag_list", StringType(), True),
+    StructField("is_image_or_video", StringType(), True),
+    StructField("image_src", StringType(), True),
+    StructField("downloaded", StringType(), True),
+    StructField("save_location", StringType(), True),
+    StructField("category", StringType(), True)
+])
+
+# COMMAND ----------
+
+geo_schema = StructType([
+    StructField("ind", IntegerType(), True),
+    StructField("latitude", FloatType(), True),
+    StructField("longitude", FloatType(), True),
+    StructField("timestamp", TimestampType(), True),
+    StructField("country", StringType(), True)
+])
+
+# COMMAND ----------
+
+user_schema = StructType({
+    StructField("ind", IntegerType(), True),
+    StructField("date_joined", TimestampType(), True),
+    StructField("first_name", StringType(), True),
+    StructField("last_name", StringType(), True),
+    StructField("age", IntegerType(), True)
+})
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### df_pin cleaning
+
+# COMMAND ----------
+
+df_pin = df_pin.withColumn("parsed_data", from_json(col("data"), pin_schema))
+df_pin = df_pin.select("parsed_data.*")
+
+# COMMAND ----------
+
+df_pin = df_pin.withColumn("description", when(col("description").rlike("(No description available|Untitled)"), None).otherwise(col("description")))
+df_pin = df_pin.withColumn("follower_count", when(col("follower_count").rlike("User Info Error"), None).otherwise(col("follower_count")))
+df_pin = df_pin.withColumn("image_src", when(col("image_src").rlike("Image src error."), None).otherwise(col("image_src")))
+df_pin = df_pin.withColumn("poster_name", when(col("poster_name").rlike("User Info Error"), None).otherwise(col("poster_name")))
+df_pin = df_pin.withColumn("tag_list", when(col("tag_list").rlike("N,o, ,T,a,g,s, ,A,v,a,i,l,a,b,l,e"), None).otherwise(col("tag_list")))
+df_pin = df_pin.withColumn("title", when(col("title").rlike("(^$|No Title Data Available)"), None).otherwise(col("title")))
+
+# COMMAND ----------
+
+df_pin = df_pin.withColumn(
+    "follower_count",
+    when(col("follower_count").endswith("k"), regexp_replace("follower_count", "k", "000"))
+    .when(col("follower_count").endswith("M"), regexp_replace("follower_count", "M", "000000"))
+    .otherwise(col("follower_count"))
+)
+
+df_pin = df_pin.withColumn("follower_count", df_pin["follower_count"].cast("int"))
+
+# COMMAND ----------
+
+df_pin = df_pin.withColumn("index", df_pin["index"].cast("int"))
+df_pin = df_pin.withColumnRenamed("index", "ind")
+
+# COMMAND ----------
+
+df_pin = df_pin.withColumn("save_location", regexp_replace("save_location", "Local save in ", ""))
+
+# COMMAND ----------
+
+df_pin = df_pin.withColumn("tag_list", split(df_pin["tag_list"], ",", limit=-1))
+
+# COMMAND ----------
+
+df_pin = df_pin.withColumn("downloaded", df_pin["downloaded"].cast("boolean"))
+
+# COMMAND ----------
+
+df_pin = df_pin.select("ind", "unique_id", "title", "description", "follower_count", "poster_name", "tag_list", "is_image_or_video", "image_src", "save_location", "downloaded", "category")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### df_geo cleaning
+
+# COMMAND ----------
+
+df_geo = df_geo.withColumn("parsed_data", from_json(col("data"), geo_schema))
+df_geo = df_geo.select("parsed_data.*")
+
+# COMMAND ----------
+
+df_geo = df_geo.withColumn("coordinates", array("latitude", "longitude"))
+df_geo = df_geo.drop("latitude", "longitude")
+
+# COMMAND ----------
+
+df_geo = df_geo.select("ind", "country", "coordinates", "timestamp")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### df_user cleaning
+
+# COMMAND ----------
+
+df_user = df_user.withColumn("parsed_data", from_json(col("data"), user_schema))
+df_user = df_user.select("parsed_data.*")
+
+# COMMAND ----------
+
+df_user = df_user.withColumn("user_name", concat("first_name", lit(" "), "last_name"))
+df_user = df_user.drop("first_name", "last_name")
+
+# COMMAND ----------
+
+df_user = df_user.select("ind", "user_name", "age", "date_joined")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### all dataframes cleaned
