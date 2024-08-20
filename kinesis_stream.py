@@ -64,3 +64,7 @@ df_user = spark \
 df_pin = df_pin.selectExpr("CAST(data as STRING)")
 df_geo = df_geo.selectExpr("CAST(data as STRING)")
 df_user = df_user.selectExpr("CAST(data as STRING)")
+
+# COMMAND ----------
+
+display(df_pin)
