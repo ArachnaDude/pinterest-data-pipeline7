@@ -199,4 +199,36 @@ df_user = df_user.select("ind", "user_name", "age", "date_joined")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ### all dataframes cleaned
+# MAGIC ### writing to sinks
+
+# COMMAND ----------
+
+df_pin.writeStream \
+    .format("delta")\
+    .outputMode("append")\
+    .option("checkpointLocation", "/tmp/kinesis/_checkpoints/")\
+    .table("0e33e87dfa09_pin_table")
+
+df_geo.writeStream \
+    .format("delta")\
+    .outputMode("append")\
+    .option("checkpointLocation", "/tmp/kinesis/_checkpoints/")\
+    .table("0e33e87dfa09_geo_table")
+
+df_user.writeStream \
+    .format("delta")\
+    .outputMode("append")\
+    .option("checkpointLocation", "/tmp/kinesis/_checkpoints/")\
+    .table("0e33e87dfa09_user_table")
+
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### run the following command before running writeStream commands:
+# MAGIC
+# MAGIC `dbutils.fs.rm("/tmp/kinesis/_checkpoints/", True)`
+
+# COMMAND ----------
+
+# dbutils.fs.rm("/tmp/kinesis/_checkpoints/", True)
