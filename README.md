@@ -8,7 +8,17 @@ The aim of this project is to gain a better understanding of Data Engineering wo
 
 This README documents the journey of data through this pipeline, from the initial ingestion of raw data, to the final writing to Delta Lake tables.
 
-TODO: consider Toc
+## Table of Contents:
+
+- [Milestone 1](#milestone-1)
+- [Milestone 2](#milestone-2)
+- [Milestone 3](#milestone-3)
+- [Milestone 4](#milestone-4)
+- [Milestone 5](#milestone-5)
+- [Milestone 6](#milestone-6)
+- [Milestone 7](#milestone-7)
+- [Milestone 8](#milestone-8)
+- [Milestone 9](#milestone-9)
 
 ## Setup and Installation:
 
@@ -136,7 +146,7 @@ $ wget https://github.com/aws/aws-msk-iam-auth/releases/download/v1.1.5/aws-msk-
 
 This `.jar` file will provide the Kafka client with the necessary authentications to connect to MSK clusters. As such, it's important that we save the location of this file to an environment variable, `CLASSPATH`.
 
-This will keep the environment variable persistant between sessions, otherwise it would be lost next time we connect to the EC2 instance.
+This will keep the environment variable persistent between sessions, otherwise it would be lost next time we connect to the EC2 instance.
 
 Open the `.bashrc` file with:
 
@@ -144,7 +154,7 @@ Open the `.bashrc` file with:
 $ nano ~/.bashrc
 ```
 
-and add this line to the bottom of the file:
+And add this line to the bottom of the file:
 
 ```
 export CLASSPATH=/home/ec2-user/kafka_2.12-2.8.1/libs/aws-msk-iam-auth-1.1.5-all.jar
@@ -175,7 +185,7 @@ $ cd ..
 $ cd bin/
 ```
 
-Create a client.properties file, and add the following configurations:
+Create a `client.properties` file, and add the following configurations:
 
 ```
 security.protocol = SASL_SSL
@@ -198,7 +208,7 @@ The following topics are to be created:
 - <user_id>.geo
 - <user_id>.user
 
-from the `bin/` folder in the Kafka installation directory, run the following command:
+From the `bin/` folder in the Kafka installation directory, run the following command:
 
 ```
 ./kafka-topics.sh --bootstrap-server <Bootstrap_Server_String> --command-config client.properties --create --topic <topic_name>
@@ -285,10 +295,10 @@ To do this, we must be in the correct directory, `~/confluent-7.2.0/bin`, and ru
 $ ./kafka-rest-start /home/ec2-user/confluent-7.2.0/etc/kafka-rest/kafka-rest.properties
 ```
 
-When this command is run, the screen will very quickly fill with text. However the most important part is the very last line, which will (if all went correctly) say:
+When this command is run, the terminal will quickly fill with text. However the most important part is the very last line, which will (if all went correctly) say:
 
 ```
-INFO Server started, listening for requests
+INFO Server started, listening for requests...
 ```
 
 Much like this:
@@ -296,7 +306,20 @@ Much like this:
 ![listening](images/listening.png)
 
 We now head back to our python file, `user_posting_emulation.py`, and start it running.
-If printed out, the `response.status_code` should be 200, meaning all is well!
+
+Unfortunately, at this point we are likely to run into a mysterious `TypeError` informing us that `Object of type datetime is not JSON serializable`.
+
+What does this mean? And more importantly, how do we resolve it?
+
+We get this error when using the `json.dumps()` to convert the Python dictionary being pulled from the RDS tables into a JSON string, because `datetime` objects are too complex to be interpreted and serialised by the JSON encoder. To resolve this, we have to proivide `json.dumps()` with the tools it requires to be able to handle `datetime` objects. Luckily we can do this with the `default` kwarg.
+
+This can be done by coercing everything that isn't serialisable by default into a string, as such:
+
+![serialise](images/serialise.png)
+
+We will explore an alternative solution in a coming milestone.
+
+With our JSON nicely serialised, we can restart the file, and observe the data being sent. If we elected to print the `response.status_code`, we should be seeing 200s, meaning all is well!
 
 ![200](images/200.jpg)
 
@@ -402,3 +425,155 @@ The questions that were posed subsequently are all answered.
 For the questions in tasks 4-11, please find the context for the qestions and the code that generates the successful answers at the end of the `dataframes_and_cleans` file in the repo.
 
 ## Milestone 8
+
+In this Milestone we will connect an MWAA (Managed Workflows for Apache Airflow)environment with our Databricks notebook, and trigger it to run once a day.
+
+The environment, bucket and connection has been created for us already, so we just need to create and upload a DAG to trigger the Databricks notebook to run daily.
+
+It should follow this basic structure:
+
+![dag_structure](images/dag_structure.png)
+
+The key features of the DAG to alter here are the notebook path, which should point to the notebook we performed our cleans in, the owner, which should be our `user_id`, the retries, which should be a number, the start date, which should be a datetime (easiest to set for today's date), and the schedule interval. This can take a few different formats, but an easy one is simply `"@daily"`. This ensures that the DAG is triggered every day at midnight.
+Finally, the last option to change is the existing cluster id, which is the id of the Databricks cluster that our notebook is running on.
+
+Now all of this is set up, we upload the file to the provided S3 bucket, and check it out in the Airflow UI.
+
+We can now trigger the DAG, and after holding our collective breaths, watch it turn green as it successfully completes for the first time. We will check back in on the DAG over the coming days to ensure that it has continued to run correctly, and end up with a pleasing sequence of green check-boxes as such:
+
+![dag](images/dag.png)
+
+## Milestone 9
+
+### Kinesis setup and API configuration:
+
+The final milestone of the project requires processing streaming data with AWS Kinesis Data Streams.
+
+We create our three streams in the Kinesis console. These are:
+
+- `streaming-<user_id>-pin`
+- `streaming-<user_id>-geo`
+- `streaming-<user_id>-user`
+
+Next, we configure our existing API in Gateway to allow it to invoke Kinesis actions, and to receive the streaming data that we send it.
+
+We do this by creating a new resource, `/streams`, and a child resource to that, called `/{stream-name}`. This will allow us to substitue the stream-name at runtime, making it more flexible than repeating outselves and adding a resource and methods for each of our streams.
+
+Next we add `GET`, `POST`, and `DELETE` methods to a `/{stream-name}` resource, allowing us to list, create, describe and delete streams in Kinesis.
+
+Next, we add two new child resources, `/record` and `/records`. These will allow sending of one record and multiple records at a time, respectively.
+
+Under these, we create `PUT` methods for each.
+
+Our final structure will look like this:
+
+![final_api](images/api_final.png)
+
+Our finished API is versatile, flexible, and ready for anything we throw at it!
+
+### Streaming the data:
+
+This step involves modification of the original `user_posting_emulation.py` file into the new and upgraded `user_posting_emulation_streaming.py`.
+
+The key differences are replacing the URLS of the topics with the URLs of the Kinesis streams. These are going to be sent to their respective `/record` endpoints.
+
+We also need to modify the `json.dumps()` to accomodate the new format that we're sending. This done, we can send our data, and run into that `TypeError` again.
+
+This time, we will solve the problem using a custom function. The `serialise_datetimes` function takes in a datetime object, and converts it to an ISO standardised format that the JSON Encoder can serialise without issue. We pass this function to the `default` kwarg, thus nicely handling our `datetime` issue.
+
+Interestingly, this solution is preferable to the previous one of simply passing `str` to the `default` kwarg, as that will not handle other non-serialisable datatypes like sets, functions, or generator objects etc. This function can be expanded to handle all of these datatypes.
+
+In any case, our finished result should look something like this:
+
+![stream](images/stream.png)
+
+Now we can start it up, and watch those 200 status codes come rolling in.
+
+We can confirm that the data is being sent to the respective streams, by printing out the `response.json()`, telling us which shard each piece of data is being sent to.
+
+![json](images/json.png)
+
+This will result in the following data structure being printed to the console:
+
+![streaming_json](images/stream_json.png)
+
+And we can check in the Kinesis console that our data is arriving:
+
+![kinesis](images/kinesis.png)
+
+### Processing streaming data:
+
+Now that our data is arriving in real time to Kinesis, we can process it in much the same way as we processed our batch data. Obviously there are some fundamental differences, such as not being able to sort the dataframe by index, or dropping duplicates, which is impossible given the constantly updating nature of streaming data.
+
+Additionally, it is important to note that instead of splitting individual steps into multiple cells, the reading of the dataframe, the cleaning steps, and the eventual writing to a sink must be performed in the same cell. It is however possible to have one cell for each stream.
+
+Another key difference is that we can no longer rely on pyspark to infer a schema for our data. Instead, we must use the `StructType` and `StructField` commands to explicitly definie our schema.
+
+There are advantages to this approach. It saves us having to explicitly cast columns later in the cleaning process, as we begin with the datatypes we want for the most part, rather than having to convert from strings.
+
+This is the schema for the first pinterest dataframe:
+
+![schema](images/schema.png)
+
+Finally, as the format we are using is simply `kinesis`, we can't explicitly define what we're working with as JSON. Trying to display this will give us an unexpected result:
+
+![deserialise](images/deserialise.png)
+
+This doesn't resemble our data structure at all. What's happening here?
+
+What we're seeing is the default Kinesis schema, most of which we don't require for this project. Of particular interest is the `data` column, however. This is actually our data which we serialised. In order to make meaningful use of it, we need to explictly deserialise it. We do this with the following command:
+
+```
+df=df.selectExpr("CAST(data as STRING)")
+```
+
+This will reassign the dataframe to just the deserialised data column, which will now at least resemble the structure of our data. However we will note that there is only one column, `data`, the value of which is separate JSON objects.
+
+![deserialise_2](images/deserialise_2.png)
+
+Using the following commands, we can interpret this JSON data into our desired dataframe format:
+
+```
+df = df.withColumn("parsed_data", from_json(col("data"), pin_schema))
+```
+
+This creates a new column, `parsed_data` using the `from_json()` function, which uses the `data` column as the target to interpret, and the schema we defined earlier to definie the conversion.
+
+![struct](images/struct.png)
+
+On the face of things, we haven't done anything particularly meaningful. But if we direct our attention to the datatype next to the column name, we can see that `parsed_data` contains a struct, whereas `data` exists as a string.
+
+We can now reassign the dataframe:
+
+```
+df=df.select("parsed_data.*")
+
+```
+
+![reassigned](images/reassigned.png)
+
+And now we see the dataframe that we are familiar with. The rest of the cleaning steps are just a repeat of what we have already done, with minor modificiations to account for the differences between streaming and batch cleaning.
+
+### Writing to a sink:
+
+The final step on our data journey is to write this data to an external sink. For this, we will be using Databricks Delta Tables.
+
+We do this by adding the following code to the bottom of our cell:
+
+```
+df.writeStream \
+    .format("delta")\
+    .outputMode("append")\
+    .option("checkpointLocation", "/tmp/kinesis/_checkpoints/pin")\
+    .table("0e33e87dfa09_pin_table")
+```
+
+If we start this cell running now, we can see in near-real time the number of rows growing, as it pulls from our stream.
+
+N.B. For this to work correctly, the `user_posting_emulation_streaming.py` file does need to be running. It's difficult to pull data from something that isn't sending it.
+
+Finally, we can verify that our data is being written to the delta table by checking in the `catalogue` and locating our table in the Databricks Hive Metastore.
+
+![delta](images/delta.png)
+
+With this step complete, we have successfully tracked our data from source to sink, and fulfilled the ETL pipeline. The data that we have pulled here could now go on to be used in many different applications, but our involvement concludes with the writing to the data tables.
