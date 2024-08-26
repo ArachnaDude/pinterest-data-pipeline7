@@ -4,7 +4,7 @@ Pinterest crunches billions of data points every day to decide how to provide mo
 
 ## Description:
 
-The aim of this project is to gain a better understanding of Data Engineering workflows and the Extract Transform Load pipeline, by replicating the Pintrest Data Pipeline, supported by AWS Cloud services.
+The aim of this project is to gain a better understanding of Data Engineering workflows and the Extract Transform Load pipeline, by replicating the Pinterest Data Pipeline, supported by AWS Cloud services.
 
 This README documents the journey of data through this pipeline, from the initial ingestion of raw data, to the final writing to Delta Lake tables.
 
