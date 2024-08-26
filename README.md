@@ -1,4 +1,4 @@
-# PINTREST DATA PIPELINE
+# PINTEREST DATA PIPELINE
 
 Pinterest crunches billions of data points every day to decide how to provide more value to their users.
 
